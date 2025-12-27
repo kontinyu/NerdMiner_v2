@@ -12,6 +12,4 @@ boards/ESP32_wroom_guide.md
 # Ignore runtime config files in /data (local secrets)
 /data/config.json
 /data/wificonfig.json
-# keep example templates tracked
-/data/config.example.json
-/data/wificonfig.example.json
+# Keep example files tracked by not ignoring them (place examples in /data with the ".example" suffix)
