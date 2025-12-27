@@ -5,7 +5,29 @@
 
 #include <U8g2lib.h>
 #include "monitor.h"
+#ifdef USE_LED
+#include <FastLED.h>
+#endif
 
+#ifdef USE_LED
+#define MAX_BRIGHTNESS 16
+#define SLOW_FADE 1;
+#define FAST_FADE 4;
+
+CRGB leds(0, 0, 0);
+int brightness = 0;
+int fadeDirection = 1;
+int fadeAmount = 0;
+bool oledLedOn = true;
+
+#ifndef RGB_LED_CLASS
+#define RGB_LED_CLASS WS2812B
+#endif
+#ifndef RGB_LED_ORDER
+#define RGB_LED_ORDER BGR
+#endif
+
+#endif // USE_LED
 #ifdef U8X8_HAVE_HW_SPI
 #include <SPI.h>
 #endif
@@ -39,20 +61,7 @@ static uint8_t setup_icon[] = {
   0x00, 0xE0, 0x01, 0x00, 0x00, 0xE0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
 };
 
-U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
-
-#ifdef USE_LED
-#include <FastLED.h>
-#define MAX_BRIGHTNESS 16
-#define SLOW_FADE 1;
-#define FAST_FADE 4;
-
-CRGB leds(0, 0, 0);
-int brightness = 0;
-int fadeDirection = 1;
-int fadeAmount = 0;
-bool oledLedOn = true;
-#endif
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
 extern monitor_data mMonitor;
 
@@ -77,7 +86,7 @@ void serialPrint(unsigned long mElapsed) {
   Serial.printf(">>> Total MHashes: %s\n", data.totalMHashes.c_str());
   Serial.printf(">>> Time mining: %s\n", data.timeMining.c_str());
 }
-
+  static bool oledPowerOn = true;
 void oledDisplay_Init(void)
 {
   Serial.println("OLED 0.42 display driver initialized");
@@ -87,24 +96,13 @@ void oledDisplay_Init(void)
   u8g2.setFlipMode(1);
   clearScreen();
 
+
   #ifdef USE_LED
   // Initialize single RGB LED (same pattern as other display drivers)
   FastLED.addLeds<RGB_LED_CLASS, RGB_LED_PIN, RGB_LED_ORDER>(&leds, 1);
   FastLED.show();
+  #endif
 
-  // Quick diagnostic: show blue briefly and print config
-  Serial.printf("RGB LED pin=%d\n", RGB_LED_PIN);
-  #ifdef RGB_LED_ORDER
-  Serial.println("RGB_LED_ORDER defined");
-  #endif
-  #ifdef RGB_LED_CLASS
-  Serial.println("RGB_LED_CLASS defined");
-  #endif
-  leds.setRGB(0,0,50); // dim blue test
-  FastLED.show();
-  delay(200);
-  FastLED.clear(true);
-  #endif
 }
 
 void oledDisplay_AlternateScreenState(void)
@@ -115,6 +113,8 @@ void oledDisplay_AlternateScreenState(void)
   oledLedOn = !oledLedOn;
   if (!oledLedOn) FastLED.clear(true);
 #endif
+  oledPowerOn = !oledPowerOn;
+  u8g2.setPowerSave(!oledPowerOn);
 }
 
 void oledDisplay_AlternateRotation(void)
@@ -125,11 +125,35 @@ void oledDisplay_Screen1(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
 
+  // Use inversion state set during screen switch
+  /*extern bool currentScreenInversion;
+  bool invertScreen = currentScreenInversion;
+  
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_helvB18_tf);
-  u8g2.drawStr(0, 20, data.currentHashRate.c_str());
-  u8g2.setFont(u8g2_font_helvB08_tf);
-  u8g2.drawStr(45, 36, "KH/s");
+  u8g2.setDrawColor(invertScreen ? 0 : 1);
+  
+  // Fill screen if inverted
+  if (invertScreen) {
+    u8g2.setDrawColor(1);
+    u8g2.drawBox(0, 0, 128, 64);
+    u8g2.setDrawColor(0);
+  }
+  */
+  // Draw border line at bottom of yellow region (y=15, full width)
+  u8g2.drawLine(0, 15, 127, 15);
+  
+  // "Qminer" title in top left (yellow region, line 0-15)
+  u8g2.setFont(u8g2_font_mercutio_basic_nbp_tf);
+  u8g2.drawStr(2, 12, "Qminer");
+  
+  // KH/s label - top right (same font as Qminer)
+  u8g2.setFont(u8g2_font_helvB10_tf);
+  u8g2.drawStr(92, 13, "KH/s");
+  
+  // Main hashrate value - seven-segment LCD style font, moved 20 pixels higher
+  u8g2.setFont(u8g2_font_7_Seg_41x21_mn); // Classic digital display look
+  u8g2.drawStr(5, 20, data.currentHashRate.c_str());
+  
   u8g2.sendBuffer();
 
   serialPrint(mElapsed);
