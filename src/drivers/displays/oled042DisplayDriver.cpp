@@ -41,6 +41,21 @@ static uint8_t setup_icon[] = {
 
 U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
+#ifdef USE_LED
+#include <FastLED.h>
+#define MAX_BRIGHTNESS 16
+#define SLOW_FADE 1;
+#define FAST_FADE 4;
+
+CRGB leds(0, 0, 0);
+int brightness = 0;
+int fadeDirection = 1;
+int fadeAmount = 0;
+bool oledLedOn = true;
+#endif
+
+extern monitor_data mMonitor;
+
 void clearScreen(void) {
     u8g2.clearBuffer();
     u8g2.sendBuffer();
@@ -71,11 +86,22 @@ void oledDisplay_Init(void)
   u8g2.clear();
   u8g2.setFlipMode(1);
   clearScreen();
+
+  #ifdef USE_LED
+  // Initialize single RGB LED (same pattern as other display drivers)
+  FastLED.addLeds<RGB_LED_CLASS, RGB_LED_PIN, RGB_LED_ORDER>(&leds, 1);
+  FastLED.show();
+  #endif
 }
 
 void oledDisplay_AlternateScreenState(void)
 {
   Serial.println("Switching display state");
+#ifdef USE_LED
+  // toggle led display state when user switches screens
+  oledLedOn = !oledLedOn;
+  if (!oledLedOn) FastLED.clear(true);
+#endif
 }
 
 void oledDisplay_AlternateRotation(void)
@@ -130,6 +156,46 @@ void oledDisplay_SetupScreen(void)
 
 void oledDisplay_DoLedStuff(unsigned long frame)
 {
+#ifdef USE_LED
+    if (!oledLedOn)
+    {
+        FastLED.clear(true);
+        return;
+    }
+
+    switch (mMonitor.NerdStatus)
+    {
+    case NM_waitingConfig:
+        brightness = MAX_BRIGHTNESS;
+        leds.setRGB(255, 255, 0);
+        fadeAmount = 0;
+        break;
+
+    case NM_Connecting:
+        leds.setRGB(0, 0, 255);
+        fadeAmount = SLOW_FADE;
+        break;
+
+    case NM_hashing:
+        leds.setRGB(0, 255, 0);
+        fadeAmount = FAST_FADE;
+        break;
+
+    default:
+        FastLED.clear(true);
+        return;
+    }
+
+    leds.fadeLightBy(0xFF - brightness);
+    FastLED.show();
+
+    brightness = brightness + (fadeDirection * fadeAmount);
+    if (brightness <= 0 || brightness >= MAX_BRIGHTNESS)
+    {
+        fadeDirection = -fadeDirection;
+    }
+    brightness = constrain(brightness, 0, MAX_BRIGHTNESS);
+#endif
 }
 
 void oledDisplay_AnimateCurrentScreen(unsigned long frame)
