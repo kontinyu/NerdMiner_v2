@@ -91,6 +91,19 @@ void oledDisplay_Init(void)
   // Initialize single RGB LED (same pattern as other display drivers)
   FastLED.addLeds<RGB_LED_CLASS, RGB_LED_PIN, RGB_LED_ORDER>(&leds, 1);
   FastLED.show();
+
+  // Quick diagnostic: show blue briefly and print config
+  Serial.printf("RGB LED pin=%d\n", RGB_LED_PIN);
+  #ifdef RGB_LED_ORDER
+  Serial.println("RGB_LED_ORDER defined");
+  #endif
+  #ifdef RGB_LED_CLASS
+  Serial.println("RGB_LED_CLASS defined");
+  #endif
+  leds.setRGB(0,0,50); // dim blue test
+  FastLED.show();
+  delay(200);
+  FastLED.clear(true);
   #endif
 }
 
