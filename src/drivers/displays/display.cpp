@@ -1,4 +1,5 @@
 #include "display.h"
+#include <Arduino.h>
 
 #ifdef NO_DISPLAY
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
@@ -100,10 +101,14 @@ void resetToFirstScreen()
 {
   currentDisplayDriver->current_cyclic_screen = 0;
 }
+// Current screen inversion state
+bool currentScreenInversion = false;
 
 // Switches to the next cyclic screen without drawing it
 void switchToNextScreen()
 {
+  // Randomly decide inversion before switching
+  currentScreenInversion = random(0, 2) == 1;
   currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen + 1) % currentDisplayDriver->num_cyclic_screens;
 }
 

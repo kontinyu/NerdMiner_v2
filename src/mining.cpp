@@ -443,6 +443,7 @@ void runStratumWorker(void *name) {
                                             best_diff = itt->second->diff;
                                           if (itt->second->is32bit)
                                             shares++;
+                                            mMonitor.NerdStatus = NM_accepted;
                                           if (itt->second->isValid)
                                           {
                                             Serial.println("CONGRATULATIONS! Valid block found");
@@ -1220,12 +1221,28 @@ void runMonitor(void *name)
   uint32_t last_update_millis = millis();
   uint32_t uptime_frac = 0;
 
+
+  // Auto screen switching every 5 seconds
+  unsigned long lastScreenSwitch = millis();
+  const unsigned long SCREEN_SWITCH_INTERVAL = 30000; // 5 minutes
+
+
   while (1)
   {
     uint32_t now_millis = millis();
     if (now_millis < last_update_millis)
       now_millis = last_update_millis;
     
+
+
+          // Check if it's time to switch screens (every 5 minues)
+    if (now_millis - lastScreenSwitch >= SCREEN_SWITCH_INTERVAL)
+    {
+      switchToNextScreen();
+      lastScreenSwitch = now_millis;
+    }
+
+
     uint32_t mElapsed = now_millis - mLastCheck;
     if (mElapsed >= 1000)
     { 
@@ -1269,7 +1286,6 @@ void runMonitor(void *name)
     }
     animateCurrentScreen(frame);
     doLedStuff(frame);
-
     vTaskDelay(DELAY / portTICK_PERIOD_MS);
     frame++;
   }
